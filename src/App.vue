@@ -16,6 +16,29 @@ const queryField = workflowFields[0];
 const composerValue = ref(initialFormValues[queryField.name] ?? "");
 const messagesContainer = ref<HTMLElement | null>(null);
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatAssistantHtml(content: string) {
+  const escaped = escapeHtml(content.trim());
+  const quoted = escaped
+    .replace(/&gt;\s*「([\s\S]*?)」/g, '<span class="quote-block">[$1]</span>')
+    .replace(/「([\s\S]*?)」/g, '<span class="quote-inline">[$1]</span>');
+
+  const withParagraphs = quoted
+    .split(/\n{2,}/)
+    .map((paragraph: string) => `<p>${paragraph.replace(/\n/g, "<br />")}</p>`)
+    .join("");
+
+  return withParagraphs || "<p></p>";
+}
+
 onMounted(() => {
   chatStore.initializeFields(workflowFields);
   for (const [name, value] of Object.entries(initialFormValues)) {
@@ -36,7 +59,6 @@ watch(
 const title = computed(() => DIFY_WORKFLOW_DSL.app.name);
 const subtitle = computed(() => DIFY_WORKFLOW_DSL.app.description);
 const openingStatement = computed(() => DIFY_WORKFLOW_DSL.workflow.features.openingStatement);
-const systemInputs = computed(() => DIFY_WORKFLOW_DSL.workflow.systemInputs);
 
 async function sendMessage() {
   const query = composerValue.value.trim();
@@ -93,38 +115,20 @@ function onComposerKeydown(event: KeyboardEvent) {
   <div class="page-shell">
     <main class="app-card">
       <section class="hero">
-        <p class="eyebrow">Vue 3 + Vite + Pinia + Vercel Proxy</p>
         <h1>{{ title }}</h1>
         <p class="subtitle">{{ subtitle }}</p>
-        <p class="hint">工作流链路：开始 -> 索引优化 -> 知识检索 -> LLM -> 直接回复</p>
-      </section>
-
-      <section class="panel workflow-panel">
-        <div class="panel-title-row">
-          <h2>输入结构</h2>
-          <span>来自 DSL 起始节点</span>
-        </div>
-        <div class="pill-list">
-          <span v-for="item in systemInputs" :key="item.name" class="pill">
-            {{ item.name }} / {{ item.type }}
-          </span>
-        </div>
-        <p class="note">
-          当前真正需要用户提供的只有 <code>userinput.query</code>，其余字段由 Dify 运行时自动注入，鉴权由后端
-          <code>/api/chat</code> 代理统一处理。
-        </p>
       </section>
 
       <section class="panel chat-panel">
         <div class="panel-title-row">
           <h2>聊天窗口</h2>
-          <span>SSE 流式响应</span>
+          <span>{{ chatStore.loading ? "回答生成中" : "已就绪" }}</span>
         </div>
 
         <div ref="messagesContainer" class="messages">
           <div v-if="chatStore.messages.length === 0" class="empty-state">
             <p>{{ openingStatement }}</p>
-            <small>直接输入你的问题，前端会把它映射为 `query`，再由后端代理转发到 Dify Chatflow。</small>
+            <small>直接输入问题即可，页面只展示最终答案。</small>
           </div>
 
           <article
@@ -135,7 +139,12 @@ function onComposerKeydown(event: KeyboardEvent) {
           >
             <div class="message-bubble">
               <strong>{{ message.role === "user" ? "你" : "ForJue" }}</strong>
-              <p>{{ message.content || (message.streaming ? "思考中..." : "") }}</p>
+              <div
+                v-if="message.role === 'assistant'"
+                class="assistant-content"
+                v-html="formatAssistantHtml(message.content || (message.streaming ? '思考中...' : ''))"
+              />
+              <p v-else>{{ message.content }}</p>
             </div>
           </article>
         </div>
@@ -202,24 +211,14 @@ function onComposerKeydown(event: KeyboardEvent) {
 }
 
 .hero h1 {
-  margin: 8px 0;
+  margin: 0 0 8px;
   font-size: 32px;
 }
 
 .subtitle,
-.hint,
-.eyebrow,
 .panel-title-row span,
-.empty-state small,
-.note {
+.empty-state small {
   color: #5f6b85;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .panel {
@@ -237,24 +236,6 @@ function onComposerKeydown(event: KeyboardEvent) {
 .panel-title-row h2 {
   margin: 0;
   font-size: 20px;
-}
-
-.pill-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.pill {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: #f3f6fc;
-  color: #31405f;
-  font-size: 14px;
-}
-
-.note {
-  margin-bottom: 0;
 }
 
 .chat-panel {
@@ -316,6 +297,25 @@ function onComposerKeydown(event: KeyboardEvent) {
 
 .message-bubble p {
   margin: 0;
+}
+
+.assistant-content p {
+  margin: 0 0 12px;
+}
+
+.assistant-content p:last-child {
+  margin-bottom: 0;
+}
+
+.assistant-content :deep(.quote-block),
+.assistant-content :deep(.quote-inline) {
+  font-style: italic;
+}
+
+.assistant-content :deep(.quote-block) {
+  display: block;
+  margin: 10px 0;
+  color: #44506a;
 }
 
 .error-text {

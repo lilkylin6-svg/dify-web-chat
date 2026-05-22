@@ -65,7 +65,7 @@ function extractAppendText(event: string, payload: unknown): string | null {
     readPath(payload, ["text"]),
   ];
 
-  if (["text_chunk", "agent_message", "message"].includes(event)) {
+  if (event === "message") {
     return candidates.find(
       (item): item is string => typeof item === "string" && item.length > 0,
     ) ?? null;
