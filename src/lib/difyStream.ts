@@ -74,21 +74,6 @@ function extractAppendText(event: string, payload: unknown): string | null {
   return null;
 }
 
-function extractFinalText(payload: unknown): string | null {
-  const candidates: unknown[] = [
-    readPath(payload, ["data", "outputs", "text"]),
-    readPath(payload, ["data", "outputs", "answer"]),
-    readPath(payload, ["outputs", "text"]),
-    readPath(payload, ["outputs", "answer"]),
-    readPath(payload, ["answer"]),
-    readPath(payload, ["text"]),
-  ];
-
-  return candidates.find(
-    (item): item is string => typeof item === "string" && item.length > 0,
-  ) ?? null;
-}
-
 function extractConversationId(payload: unknown): string | null {
   const candidates: unknown[] = [
     readPath(payload, ["conversation_id"]),
@@ -139,7 +124,6 @@ export async function streamWorkflowResponse(options: StreamOptions) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    let receivedChunk = false;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -165,14 +149,8 @@ export async function streamWorkflowResponse(options: StreamOptions) {
 
         const appendText = extractAppendText(parsedEvent.event, payload);
         if (appendText) {
-          receivedChunk = true;
           options.onChunk(appendText);
           continue;
-        }
-
-        const finalText = extractFinalText(payload);
-        if (!receivedChunk && finalText) {
-          options.onReplace(finalText);
         }
 
         if (parsedEvent.event === "error") {
@@ -182,7 +160,6 @@ export async function streamWorkflowResponse(options: StreamOptions) {
               "message" in payload &&
               typeof (payload as { message?: unknown }).message === "string" &&
               (payload as { message: string }).message) ||
-            finalText ||
             "Dify 返回了错误事件。";
           throw new Error(message);
         }
