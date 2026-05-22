@@ -1,9 +1,12 @@
 interface StreamOptions {
   apiBase: string;
-  inputs: Record<string, string>;
+  query: string;
+  inputs?: Record<string, string>;
   user: string;
+  conversationId?: string;
   onChunk: (text: string) => void;
   onReplace: (text: string) => void;
+  onConversationId?: (conversationId: string) => void;
 }
 
 interface SseEvent {
@@ -86,6 +89,17 @@ function extractFinalText(payload: unknown): string | null {
   ) ?? null;
 }
 
+function extractConversationId(payload: unknown): string | null {
+  const candidates: unknown[] = [
+    readPath(payload, ["conversation_id"]),
+    readPath(payload, ["data", "conversation_id"]),
+  ];
+
+  return candidates.find(
+    (item): item is string => typeof item === "string" && item.length > 0,
+  ) ?? null;
+}
+
 export async function streamWorkflowResponse(options: StreamOptions) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 90_000);
@@ -98,8 +112,10 @@ export async function streamWorkflowResponse(options: StreamOptions) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        inputs: options.inputs,
+        query: options.query,
+        inputs: options.inputs ?? {},
         user: options.user,
+        ...(options.conversationId ? { conversation_id: options.conversationId } : {}),
       }),
       signal: controller.signal,
     });
@@ -142,6 +158,11 @@ export async function streamWorkflowResponse(options: StreamOptions) {
         }
 
         const payload = tryParseJson(parsedEvent.data);
+        const conversationId = extractConversationId(payload);
+        if (conversationId) {
+          options.onConversationId?.(conversationId);
+        }
+
         const appendText = extractAppendText(parsedEvent.event, payload);
         if (appendText) {
           receivedChunk = true;

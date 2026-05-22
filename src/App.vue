@@ -55,15 +55,17 @@ async function sendMessage() {
   try {
     await streamWorkflowResponse({
       apiBase,
-      inputs: {
-        [queryField.name]: query,
-      },
+      query,
       user: chatStore.sessionId,
+      conversationId: chatStore.conversationId || undefined,
       onChunk(text) {
         chatStore.appendAssistantMessage(assistantId, text);
       },
       onReplace(text) {
         chatStore.replaceAssistantMessage(assistantId, text);
+      },
+      onConversationId(conversationId) {
+        chatStore.setConversationId(conversationId);
       },
     });
     composerValue.value = "";
@@ -108,7 +110,7 @@ function onComposerKeydown(event: KeyboardEvent) {
           </span>
         </div>
         <p class="note">
-          当前真正需要用户提供的只有 <code>sys.query</code>，其余字段由 Dify 运行时自动注入，鉴权由后端
+          当前真正需要用户提供的只有 <code>userinput.query</code>，其余字段由 Dify 运行时自动注入，鉴权由后端
           <code>/api/chat</code> 代理统一处理。
         </p>
       </section>
@@ -122,7 +124,7 @@ function onComposerKeydown(event: KeyboardEvent) {
         <div ref="messagesContainer" class="messages">
           <div v-if="chatStore.messages.length === 0" class="empty-state">
             <p>{{ openingStatement }}</p>
-            <small>直接输入你的问题，前端会把它映射为 `inputs.query`，再由后端代理转发到 Dify Workflow。</small>
+            <small>直接输入你的问题，前端会把它映射为 `query`，再由后端代理转发到 Dify Chatflow。</small>
           </div>
 
           <article

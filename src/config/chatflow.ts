@@ -8,14 +8,10 @@ export const DIFY_WORKFLOW_DSL = {
   },
   workflow: {
     systemInputs: [
-      { name: "sys.query", type: "String" },
-      { name: "sys.files", type: "Array[File]" },
-      { name: "sys.dialogue_count", type: "Number" },
+      { name: "userinput.query", type: "String" },
+      { name: "userinput.files", type: "Array[File]" },
       { name: "sys.conversation_id", type: "String" },
       { name: "sys.user_id", type: "String" },
-      { name: "sys.app_id", type: "String" },
-      { name: "sys.workflow_id", type: "String" },
-      { name: "sys.workflow_run_id", type: "String" },
     ],
     inputFields: [
       {
@@ -24,7 +20,7 @@ export const DIFY_WORKFLOW_DSL = {
         type: "textarea",
         required: true,
         placeholder: "请输入你想问《主角》的内容",
-        description: "由 DSL 的 `sys.query` 推导而来，是当前工作流唯一需要用户输入的字段。",
+        description: "由 DSL 的 `userinput.query` 推导而来，是当前 Chatflow 唯一需要用户输入的字段。",
       },
     ],
     nodes: [
@@ -32,7 +28,7 @@ export const DIFY_WORKFLOW_DSL = {
         id: "1779368721342",
         type: "start",
         title: "开始",
-        outputs: ["sys.query"],
+        outputs: ["userinput.query", "userinput.files"],
       },
       {
         id: "1779368798294",
@@ -45,7 +41,7 @@ export const DIFY_WORKFLOW_DSL = {
         id: "1779368887416",
         type: "knowledge-retrieval",
         title: "知识检索",
-        querySource: "sys.query",
+        querySource: "userinput.query",
         datasetIds: ["a3141206-f445-4fa4-b5ad-8350f3e3a0b7"],
       },
       {

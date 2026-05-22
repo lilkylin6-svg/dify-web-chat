@@ -8,11 +8,11 @@ function normalizeBaseUrl(baseUrl) {
     return "";
   }
 
-  return /\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/v1`;
+  return trimmed.replace(/\/v1$/i, "");
 }
 
-function buildWorkflowUrl(baseUrl) {
-  return `${normalizeBaseUrl(baseUrl)}/workflows/run`;
+function buildChatMessagesUrl(baseUrl) {
+  return `${normalizeBaseUrl(baseUrl)}/v1/chat-messages`;
 }
 
 async function readJsonBody(req) {
@@ -91,13 +91,23 @@ export default async function handler(req, res) {
     payload?.inputs && typeof payload.inputs === "object" && !Array.isArray(payload.inputs)
       ? payload.inputs
       : {};
+  const query = typeof payload?.query === "string" ? payload.query.trim() : "";
   const user = typeof payload?.user === "string" && payload.user ? payload.user : "anonymous-user";
+  const conversationId =
+    typeof payload?.conversation_id === "string" && payload.conversation_id
+      ? payload.conversation_id
+      : undefined;
+
+  if (!query) {
+    sendJson(res, 400, { error: "缺少 query，Chatflow 请求必须包含用户问题。" });
+    return;
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 90_000);
 
   try {
-    const upstream = await fetch(buildWorkflowUrl(baseUrl), {
+    const upstream = await fetch(buildChatMessagesUrl(baseUrl), {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.DIFY_API_KEY}`,
@@ -105,9 +115,11 @@ export default async function handler(req, res) {
         Accept: "text/event-stream",
       },
       body: JSON.stringify({
+        query,
         inputs,
         response_mode: "streaming",
         user,
+        ...(conversationId ? { conversation_id: conversationId } : {}),
       }),
       signal: controller.signal,
     });

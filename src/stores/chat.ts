@@ -3,6 +3,7 @@ import type { ChatMessage, FormField } from "../types/chat";
 
 interface ChatState {
   sessionId: string;
+  conversationId: string;
   messages: ChatMessage[];
   formValues: Record<string, string>;
   loading: boolean;
@@ -20,6 +21,7 @@ function createId() {
 export const useChatStore = defineStore("chat", {
   state: (): ChatState => ({
     sessionId: createId(),
+    conversationId: "",
     messages: [],
     formValues: {},
     loading: false,
@@ -35,6 +37,9 @@ export const useChatStore = defineStore("chat", {
     },
     setFieldValue(name: string, value: string) {
       this.formValues[name] = value;
+    },
+    setConversationId(value: string) {
+      this.conversationId = value;
     },
     addUserMessage(content: string) {
       this.messages.push({
